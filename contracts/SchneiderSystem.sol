@@ -51,13 +51,7 @@ contract SchneiderSystem is usingOraclize {
     address public schneiderAddr;
 
     // Oraclize transaction gas limit
-    uint256 public constant ORACLIZE_GAS_LIMIT = 150000;
-
-    
-    // ** PRIVATE STATE VARIABLES **
-
-    // state of system
-    bool private _isAwait;
+    uint256 public constant ORACLIZE_GAS_LIMIT = 250000;
 
     
     // ** CONSTRUCTOR **
@@ -186,7 +180,6 @@ contract SchneiderSystem is usingOraclize {
         } else {
             emit NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
             oraclize_query(_updateTime, "URL", "json(http://165.227.135.82:5000/energy_ticker/get_tick).value", ORACLIZE_GAS_LIMIT);
-            _isAwait = true;
         }
     }
 
@@ -200,10 +193,6 @@ contract SchneiderSystem is usingOraclize {
     {
         // is finished yet
         require(endKwh == 0);
-
-        // is await yet
-        require(_isAwait);
-        _isAwait = false;
 
         // check start or end time callback
         if (startKwh == 0) {
