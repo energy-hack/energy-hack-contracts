@@ -55,24 +55,26 @@ contract SchneiderSystem is usingOraclize {
     // Oraclize transaction gas limit
     uint256 public constant ORACLIZE_GAS_LIMIT = 150000;
 
-
-    // ** PRIVATE STATE VARIABLES **
-
-    bool private _isValidated;
-
     
     // ** CONSTRUCTOR **
 
     /**
     * @dev Constructor of SchneiderSystem Contract
+    * @param _tokenAddr token address
+    * @param _endTime end time of period
+    * @param _prevPeriodKwh kWh for previous period
+    * @param _goalPeriodKwh goal kWh for period
+    * @param _customer  customer address
+    * @param _schneider schneider address
     */
     constructor(
+        address _tokenAddr,
         uint256 _endTime,
         uint256 _startKwh,
         uint256 _prevPeriodKwh,
         uint256 _goalPeriodKwh,
         address _customer,
-        address _shneider
+        address _schneider
     ) 
         public 
         payable
@@ -80,6 +82,7 @@ contract SchneiderSystem is usingOraclize {
         require(_endTime > now, "endTime must be more then now date");
         require(_prevPeriodKwh > _goalPeriodKwh, "goal must be less then now prev period kWh");
 
+        _setToken(_tokenAddr);
         startTime = now;
         endTime = _endTime;
         startKwh = _startKwh;
@@ -87,7 +90,7 @@ contract SchneiderSystem is usingOraclize {
         goalPeriodKwh = _goalPeriodKwh;
 
         customerAddr = _customer;
-        schneiderAddr = _shneider;
+        schneiderAddr = _schneider;
 
         // set oraclize proof - TLSNotary
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
@@ -103,8 +106,7 @@ contract SchneiderSystem is usingOraclize {
 
     /**
     * @dev Withdrawal eth from contract
-    * @param wallet for withdrawal
-    * @param amount eth
+    * @param _amount eth
     */
     function withdrawEth(uint256 _amount) 
         external 
@@ -127,6 +129,16 @@ contract SchneiderSystem is usingOraclize {
 
 
     // ** ORACLIZE CALLBACKS **
+
+    function __callback(
+        bytes32 myId,
+        string result
+    )
+        public 
+    {
+        require(msg.sender == oraclize_cbAddress(), "Sender is not Oraclize address");
+        _oraclizeCallback(myId, result, "NONE");
+    }
 
     function __callback(
         bytes32 myId,
@@ -164,7 +176,7 @@ contract SchneiderSystem is usingOraclize {
             emit NewOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
         } else {
             emit NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
-            oraclize_query("URL", "json(https://api.azbit.com/api/v1/data).az", ORACLIZE_GAS_LIMIT);
+            oraclize_query("URL", "json(http://165.227.135.82:5000/energy_ticker/get_tick).value", ORACLIZE_GAS_LIMIT);
         }
     }
 
@@ -176,9 +188,9 @@ contract SchneiderSystem is usingOraclize {
     )
         internal
     {
-        // is validated yet
-        require(!_isValidated);
-        _isValidated = true;
+        // is finished yet
+        require(!isFinished);
+        isFinished = true;
 
         endKwh = parseInt(_result, 3); // kWh * 1e3
 
@@ -207,6 +219,14 @@ contract SchneiderSystem is usingOraclize {
         internal
     {
         require(token.transfer(_addr, _amount), "tokens are not transferred");
+    }
+
+    // Helper: Set the address of Azbit Token
+    function _setToken(address _tokenAddress) 
+        internal 
+    {
+        token = IERC20(_tokenAddress);
+        require(contractTokenBalance() >= 0, "The token being added is not ERC20 token");
     }
 
 }
