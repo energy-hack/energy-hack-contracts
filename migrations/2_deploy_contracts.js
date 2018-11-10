@@ -1,18 +1,21 @@
 var Token = artifacts.require("./SchneiderToken.sol");
 var SchneiderSys = artifacts.require("./SchneiderSystem.sol");
 
-const endTime =  Math.round((new Date().getTime() + 30000)/1000); // Now + 30 seconds;
+const endTime =  Math.round((new Date().getTime() + 3 * 60000)/1000); // Now + 3 minutes;
+const updateTime = 60; // 1 minutes
 const prevPeriodKwh = 43368663;
 const goalPeriodKwh = 24368663;
 const customer = "0xB580f73DB43015A1211A394Eb175a81dF55bBe66";
 const schneider = "0x42072709803c2ee3EB16Ac7039429Bd63b031296";
 const mintValue = 1234567891234567800;
+const ethValue = 0.1;
 
 module.exports = function(deployer) {
   deployer.deploy(Token)
   .then(function() {
       return deployer.deploy(SchneiderSys,
-        Token.address, endTime, prevPeriodKwh, goalPeriodKwh, customer, schneider);
+        Token.address, endTime, updateTime, prevPeriodKwh, goalPeriodKwh, customer, schneider, 
+        {value: web3.toWei(ethValue, 'ether')});
   }).then(function() {
       return Token.deployed();
   }).then(function(InstanceToken) {
