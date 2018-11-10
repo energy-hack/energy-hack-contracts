@@ -22,8 +22,8 @@ contract SchneiderSystem is usingOraclize {
     // Event for new oraclize query logging
     event NewOraclizeQuery(string description);
 
-    // Event for verified logging
-    event Verified(bytes32 myid, string price, bytes proof);
+    // Event for verified energy logging
+    event VerifiedEnergy(bytes32 myid, string kWh, bytes proof);
 
 
     // ** PUBLIC STATE VARIABLES **
@@ -31,11 +31,12 @@ contract SchneiderSystem is usingOraclize {
     // token
     IERC20 public token;
 
-    // Timestamp of start
+    // timestamps
     uint256 public startTime;
-
-    // Timestamp of end
     uint256 public endTime;
+
+    // update interval in seconds
+    uint256 public updateTime;
 
     // energy meter reading
     uint256 public startKwh;
@@ -65,6 +66,7 @@ contract SchneiderSystem is usingOraclize {
     * @dev Constructor of SchneiderSystem Contract
     * @param _tokenAddr token address
     * @param _endTime end time of period
+    * @param _updateTime update interval in seconds
     * @param _prevPeriodKwh kWh for previous period
     * @param _goalPeriodKwh goal kWh for period
     * @param _customer  customer address
@@ -73,6 +75,7 @@ contract SchneiderSystem is usingOraclize {
     constructor(
         address _tokenAddr,
         uint256 _endTime,
+        uint256 _updateTime,
         uint256 _prevPeriodKwh,
         uint256 _goalPeriodKwh,
         address _customer,
@@ -88,6 +91,7 @@ contract SchneiderSystem is usingOraclize {
         
         startTime = now;
         endTime = _endTime;
+        updateTime = _updateTime;
 
         prevPeriodKwh = _prevPeriodKwh;
         goalPeriodKwh = _goalPeriodKwh;
@@ -99,7 +103,7 @@ contract SchneiderSystem is usingOraclize {
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
 
         // initial update - upload of startKwh
-        _update();
+        _update(0);
     }
 
 
@@ -130,7 +134,7 @@ contract SchneiderSystem is usingOraclize {
         external 
     { 
         require(now > endTime, "Now must be more then end date");
-        _update();
+        _update(0);
     }
 
 
@@ -175,14 +179,14 @@ contract SchneiderSystem is usingOraclize {
     // ** PRIVATE HELPER FUNCTIONS **
 
     // Helper: oraclize query
-    function _update() 
+    function _update(uint256 _updateTime) 
         internal 
     {   
         if (oraclize_getPrice("URL", ORACLIZE_GAS_LIMIT) > address(this).balance) {
             emit NewOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
         } else {
             emit NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
-            oraclize_query("URL", "json(http://165.227.135.82:5000/energy_ticker/get_tick).value", ORACLIZE_GAS_LIMIT);
+            oraclize_query(_updateTime, "URL", "json(http://165.227.135.82:5000/energy_ticker/get_tick).value", ORACLIZE_GAS_LIMIT);
             _isAwait = true;
         }
     }
@@ -196,16 +200,30 @@ contract SchneiderSystem is usingOraclize {
         internal
     {
         // is finished yet
+        require(endKwh == 0);
+
+        // is await yet
         require(_isAwait);
         _isAwait = false;
 
         // check start or end time callback
         if (startKwh == 0) {
             startKwh = parseInt(_result, 3); // kWh * 1e3
-        } else {
+        } else if (now > endTime) {
             endKwh = parseInt(_result, 3); // kWh * 1e3
+            _distributeTokens();
         }
 
+        emit VerifiedEnergy(_queryId, _result, _proof);
+
+        // next update
+        _update(updateTime);
+    }
+
+    // Helper: token distribution
+    function _distributeTokens()
+        internal
+    {
         uint256 deltaKwh = endKwh.sub(startKwh);
 
         if (deltaKwh < prevPeriodKwh && deltaKwh > goalPeriodKwh) {
@@ -219,8 +237,6 @@ contract SchneiderSystem is usingOraclize {
             // withdrawal all tokens to schneider
             _transferTokens(schneiderAddr, contractTokenBalance());
         }
-
-        emit Verified(_queryId, _result, _proof);
     }
 
     // Helper: transfer tokens
