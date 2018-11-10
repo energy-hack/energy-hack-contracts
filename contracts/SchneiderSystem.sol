@@ -133,7 +133,6 @@ contract SchneiderSystem is usingOraclize {
     function verify() 
         external 
     { 
-        require(now > endTime, "Now must be more then end date");
         _update(0);
     }
 
