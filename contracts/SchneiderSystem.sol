@@ -49,11 +49,14 @@ contract SchneiderSystem is usingOraclize {
     address public customerAddr;
     address public schneiderAddr;
 
-    // global state of system
-    bool public isFinished;
-
     // Oraclize transaction gas limit
     uint256 public constant ORACLIZE_GAS_LIMIT = 150000;
+
+    
+    // ** PRIVATE STATE VARIABLES **
+
+    // state of system
+    bool private _isAwait;
 
     
     // ** CONSTRUCTOR **
@@ -70,7 +73,6 @@ contract SchneiderSystem is usingOraclize {
     constructor(
         address _tokenAddr,
         uint256 _endTime,
-        uint256 _startKwh,
         uint256 _prevPeriodKwh,
         uint256 _goalPeriodKwh,
         address _customer,
@@ -83,9 +85,10 @@ contract SchneiderSystem is usingOraclize {
         require(_prevPeriodKwh > _goalPeriodKwh, "goal must be less then now prev period kWh");
 
         _setToken(_tokenAddr);
+        
         startTime = now;
         endTime = _endTime;
-        startKwh = _startKwh;
+
         prevPeriodKwh = _prevPeriodKwh;
         goalPeriodKwh = _goalPeriodKwh;
 
@@ -94,6 +97,9 @@ contract SchneiderSystem is usingOraclize {
 
         // set oraclize proof - TLSNotary
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
+
+        // initial update - upload of startKwh
+        _update();
     }
 
 
@@ -177,6 +183,7 @@ contract SchneiderSystem is usingOraclize {
         } else {
             emit NewOraclizeQuery("Oraclize query was sent, standing by for the answer..");
             oraclize_query("URL", "json(http://165.227.135.82:5000/energy_ticker/get_tick).value", ORACLIZE_GAS_LIMIT);
+            _isAwait = true;
         }
     }
 
@@ -189,10 +196,15 @@ contract SchneiderSystem is usingOraclize {
         internal
     {
         // is finished yet
-        require(!isFinished);
-        isFinished = true;
+        require(_isAwait);
+        _isAwait = false;
 
-        endKwh = parseInt(_result, 3); // kWh * 1e3
+        // check start or end time callback
+        if (startKwh == 0) {
+            startKwh = parseInt(_result, 3); // kWh * 1e3
+        } else {
+            endKwh = parseInt(_result, 3); // kWh * 1e3
+        }
 
         uint256 deltaKwh = endKwh.sub(startKwh);
 
