@@ -182,6 +182,17 @@ contract SchneiderSystem is usingOraclize {
         return metersData;
     }
 
+    /**
+    * @return last meter data.
+    */
+    function getLastMeter()
+        public 
+        view 
+        returns(uint64 lastMeter) 
+    {
+        return metersData[metersData.length - 1];
+    }
+
     
     // ** PUBLIC PURE FUNCTIONS **
 
