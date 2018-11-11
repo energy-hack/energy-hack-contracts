@@ -236,7 +236,9 @@ contract SchneiderSystem is usingOraclize {
         emit VerifiedEnergy(_queryId, _result, _proof);
 
         // next update
-        _update(updateTime);
+        if (endMeter == 0) {
+            _update(updateTime);
+        }
     }
 
     // Helper: token distribution
