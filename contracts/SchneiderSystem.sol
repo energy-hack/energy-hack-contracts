@@ -176,8 +176,9 @@ contract SchneiderSystem is usingOraclize {
         pure 
         returns(uint256 load)
     {
-        return _curLoad.mul(27).div(100);
+        return _curLoad.mul(73).div(100);
     }
+
 
     // ** PRIVATE HELPER FUNCTIONS **
 
