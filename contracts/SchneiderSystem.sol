@@ -50,6 +50,9 @@ contract SchneiderSystem is usingOraclize {
     address public customerAddr;
     address public schneiderAddr;
 
+    // current promised percent
+    uint256 public constant PROMISED_PERCENT = 27;
+
     // Oraclize transaction gas limit
     uint256 public constant ORACLIZE_GAS_LIMIT = 250000;
 
@@ -173,10 +176,10 @@ contract SchneiderSystem is usingOraclize {
     */
     function getPromisedLoad(uint256 _curLoad)
         public 
-        pure 
+        view 
         returns(uint256 load)
     {
-        return _curLoad.mul(73).div(100);
+        return _curLoad.mul(100 - PROMISED_PERCENT).div(100);
     }
 
 
