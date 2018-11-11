@@ -38,13 +38,13 @@ contract SchneiderSystem is usingOraclize {
     // update interval in seconds
     uint256 public updateTime;
 
-    // energy meter reading
-    uint256 public startKwh;
-    uint256 public endKwh;
+    // energy meter reading in kWh
+    uint256 public startMeter;
+    uint256 public endMeter;
 
-    // current period metrics
-    uint256 public goalPeriodKwh;
-    uint256 public prevPeriodKwh;
+    // current period metrics in kWh
+    uint256 public promisedLoad;
+    uint256 public curLoad;
 
     // addresses
     address public customerAddr;
@@ -61,8 +61,7 @@ contract SchneiderSystem is usingOraclize {
     * @param _tokenAddr token address
     * @param _endTime end time of period
     * @param _updateTime update interval in seconds
-    * @param _prevPeriodKwh kWh for previous period
-    * @param _goalPeriodKwh goal kWh for period
+    * @param _curLoad kWh for previous period
     * @param _customer  customer address
     * @param _schneider schneider address
     */
@@ -70,8 +69,7 @@ contract SchneiderSystem is usingOraclize {
         address _tokenAddr,
         uint256 _endTime,
         uint256 _updateTime,
-        uint256 _prevPeriodKwh,
-        uint256 _goalPeriodKwh,
+        uint256 _curLoad,
         address _customer,
         address _schneider
     ) 
@@ -79,7 +77,6 @@ contract SchneiderSystem is usingOraclize {
         payable
     {
         require(_endTime > now, "endTime must be more then now date");
-        require(_prevPeriodKwh > _goalPeriodKwh, "goal must be less then now prev period kWh");
 
         _setToken(_tokenAddr);
         
@@ -87,8 +84,8 @@ contract SchneiderSystem is usingOraclize {
         endTime = _endTime;
         updateTime = _updateTime;
 
-        prevPeriodKwh = _prevPeriodKwh;
-        goalPeriodKwh = _goalPeriodKwh;
+        curLoad = _curLoad;
+        promisedLoad = getPromisedLoad(_curLoad);
 
         customerAddr = _customer;
         schneiderAddr = _schneider;
@@ -96,7 +93,7 @@ contract SchneiderSystem is usingOraclize {
         // set oraclize proof - TLSNotary
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
 
-        // initial update - upload of startKwh
+        // initial update - upload of startMeter
         _update(0);
     }
 
@@ -168,6 +165,19 @@ contract SchneiderSystem is usingOraclize {
         return token.balanceOf(this);
     }
 
+    
+    // ** PUBLIC PURE FUNCTIONS **
+
+    /**
+    * @return promised load in kWh.
+    */
+    function getPromisedLoad(uint256 _curLoad)
+        public 
+        pure 
+        returns(uint256 load)
+    {
+        return _curLoad.mul(27).div(100);
+    }
 
     // ** PRIVATE HELPER FUNCTIONS **
 
@@ -192,13 +202,13 @@ contract SchneiderSystem is usingOraclize {
         internal
     {
         // is finished yet
-        require(endKwh == 0);
+        require(endMeter == 0);
 
         // check start or end time callback
-        if (startKwh == 0) {
-            startKwh = parseInt(_result, 3); // kWh * 1e3
+        if (startMeter == 0) {
+            startMeter = parseInt(_result, 3); // kWh * 1e3
         } else if (now > endTime) {
-            endKwh = parseInt(_result, 3); // kWh * 1e3
+            endMeter = parseInt(_result, 3); // kWh * 1e3
             _distributeTokens();
         }
 
@@ -212,13 +222,13 @@ contract SchneiderSystem is usingOraclize {
     function _distributeTokens()
         internal
     {
-        uint256 deltaKwh = endKwh.sub(startKwh);
+        uint256 deltaLoad = endMeter.sub(startMeter);
 
-        if (deltaKwh < prevPeriodKwh && deltaKwh > goalPeriodKwh) {
+        if (deltaLoad < curLoad && deltaLoad > promisedLoad) {
             // withdrawal tokens to customer and schneider
-            _transferTokens(customerAddr, contractTokenBalance().mul(prevPeriodKwh - deltaKwh).div(prevPeriodKwh - goalPeriodKwh));
+            _transferTokens(customerAddr, contractTokenBalance().mul(curLoad - deltaLoad).div(curLoad - promisedLoad));
             _transferTokens(schneiderAddr, contractTokenBalance());
-        } else if (deltaKwh >= prevPeriodKwh) {
+        } else if (deltaLoad >= curLoad) {
             // withdrawal all tokens to customer
             _transferTokens(customerAddr, contractTokenBalance());
         } else {
