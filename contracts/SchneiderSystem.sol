@@ -174,7 +174,7 @@ contract SchneiderSystem is usingOraclize {
     /**
     * @return array of meters datas.
     */
-    function getmetersData()
+    function getMetersData()
         public 
         view 
         returns(uint64[] meters) 
