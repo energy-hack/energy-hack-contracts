@@ -50,6 +50,9 @@ contract SchneiderSystem is usingOraclize {
     address public customerAddr;
     address public schneiderAddr;
 
+    // all meters datas
+    uint64[] public metersData;
+
     // current promised percent
     uint256 public constant PROMISED_PERCENT = 27;
 
@@ -168,6 +171,17 @@ contract SchneiderSystem is usingOraclize {
         return token.balanceOf(this);
     }
 
+    /**
+    * @return array of meters datas.
+    */
+    function getmetersData()
+        public 
+        view 
+        returns(uint64[] meters) 
+    {
+        return metersData;
+    }
+
     
     // ** PUBLIC PURE FUNCTIONS **
 
@@ -176,7 +190,7 @@ contract SchneiderSystem is usingOraclize {
     */
     function getPromisedLoad(uint256 _curLoad)
         public 
-        view 
+        pure 
         returns(uint256 load)
     {
         return _curLoad.mul(100 - PROMISED_PERCENT).div(100);
@@ -208,11 +222,14 @@ contract SchneiderSystem is usingOraclize {
         // is finished yet
         require(endMeter == 0);
 
+        uint256 meter = parseInt(_result, 3); // kWh * 1e3
+        metersData.push(uint64(meter));
+
         // check start or end time callback
         if (startMeter == 0) {
-            startMeter = parseInt(_result, 3); // kWh * 1e3
+            startMeter = meter;
         } else if (now > endTime) {
-            endMeter = parseInt(_result, 3); // kWh * 1e3
+            endMeter = meter;
             _distributeTokens();
         }
 
