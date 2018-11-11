@@ -233,7 +233,7 @@ contract SchneiderSystem is usingOraclize {
         // is finished yet
         require(endMeter == 0);
 
-        uint256 meter = parseInt(_result, 3); // kWh * 1e3
+        uint256 meter = parseInt(_result); // kWh - without decimals
         metersData.push(uint64(meter));
 
         // check start or end time callback
